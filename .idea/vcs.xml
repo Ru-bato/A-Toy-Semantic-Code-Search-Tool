@@ -2,5 +2,10 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="" vcs="Git" />
+    <mapping directory="E:/Perfect_You_know/FOCAL" vcs="Git" />
+    <mapping directory="E:/Perfect_You_know/ImageForensicsOSN" vcs="Git" />
+    <mapping directory="E:/Perfect_You_know/LGrad" vcs="Git" />
+    <mapping directory="E:/Perfect_You_know/NPR-DeepfakeDetection" vcs="Git" />
+    <mapping directory="E:/Perfect_You_know/UniversalFakeDetect" vcs="Git" />
   </component>
 </project>

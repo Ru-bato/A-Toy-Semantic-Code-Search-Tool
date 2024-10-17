@@ -58,7 +58,9 @@ const login = () => {
     })
     .then((response) => {
       // login success
-      console.log(response.data)
+      const token = response.data.access
+      // store.commit('setToken', token);
+      localStorage.setItem('token', token) // 存储到 localStorage
       router.push('/')
     })
     .catch((error) => {
@@ -73,6 +75,11 @@ const login = () => {
         }
       }
     })
+}
+const logout = () => {
+  localStorage.removeItem('token') // 清除 token
+  store.commit('clearToken') // 清空 Vuex 中的 token
+  // 其他退出处理
 }
 </script>
 

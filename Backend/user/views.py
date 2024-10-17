@@ -1,11 +1,12 @@
 from django.contrib.auth import authenticate
-from rest_framework import status
-from rest_framework.decorators import api_view, permission_classes
+from rest_framework import status, viewsets, permissions
+from rest_framework.decorators import api_view
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import User, Favorite
-from .serializers import FavoriteSerializer
+from .models import User, Favorite, SearchRecord
+from .serializers import FavoriteSerializer, SearchRecordSerializer
 
 
 @api_view(['POST'])
@@ -39,7 +40,6 @@ def register_user(request):
 
 @api_view(['POST'])
 def login_user(request):
-    print(request.data)
     email = request.data.get('email')
     password = request.data.get('password')
 
@@ -51,28 +51,39 @@ def login_user(request):
     # Use authenticate function
     user = authenticate(username=email, password=password)
     if user is not None:
-        # Login success
-        print(666)
-        return Response({'message': 'Login successful', 'username': user.username}, status=status.HTTP_200_OK)
-
-    else:
-        print(999)
-        return Response({'error': 'Email or Password error'}, status=status.HTTP_401_UNAUTHORIZED)
-
-
-@api_view(['POST'])
-@permission_classes([IsAuthenticated])
-def add_favorite(request):
-    serializer = FavoriteSerializer(data=request.data)
-    if serializer.is_valid():
-        serializer.save(user=request.user)  # relate current user to favorite
-        return Response(serializer.data, status=status.HTTP_201_CREATED)
-    return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+        # 创建 token
+        refresh = RefreshToken.for_user(user)
+        return Response({
+            'refresh': str(refresh),
+            'access': str(refresh.access_token),
+        }, status=status.HTTP_200_OK)
+    return Response({'error': 'Invalid credentials'}, status=status.HTTP_401_UNAUTHORIZED)
 
 
-@api_view(['GET'])
-@permission_classes([IsAuthenticated])
-def list_favorites(request):
-    favorites = Favorite.objects.filter(user=request.user)
-    serializer = FavoriteSerializer(favorites, many=True)
-    return Response(serializer.data)
+class FavoriteViewSet(viewsets.ModelViewSet):
+    serializer_class = FavoriteSerializer
+    permission_classes = [IsAuthenticated]
+    queryset = Favorite.objects.all()  # 定义 queryset
+
+    def get_queryset(self):
+        return Favorite.objects.filter(user=self.request.user)  # 仅返回当前用户的收藏
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)  # 关联当前用户
+
+    def destroy(self, request, *args, **kwargs):
+        title = kwargs.get('pk')
+        try:
+            favorite = self.get_queryset().get(item_title=title)  # 根据 title 查找
+            favorite.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        except Favorite.DoesNotExist:
+            return Response(status=status.HTTP_404_NOT_FOUND)
+
+class SearchRecordViewSet(viewsets.ModelViewSet):
+    queryset = SearchRecord.objects.all()
+    serializer_class = SearchRecordSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        serializer.save(user=self.request.user)

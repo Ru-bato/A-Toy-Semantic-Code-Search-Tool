@@ -21,8 +21,21 @@
                   :key="index"
                   class="example-item"
                 >
-                  <a :href="example.link" target="_blank">{{ example.title }}</a>
-                  <span class="star" @click="addToFavorites(example.title, example.link)">★</span>
+                  <a
+                    :href="example.link"
+                    target="_blank"
+                    @click="handleLinkClick(example.title, example.link)"
+                    >{{ example.title }}</a
+                  >
+                  <span
+                    class="star"
+                    :class="{
+                      filled: favorites.find((fav) => fav.title === example.title && fav.isFavorite)
+                    }"
+                    @click="toggleFavorite(example.title, example.link)"
+                  >
+                    ★
+                  </span>
                 </li>
               </ul>
               <div v-else>No questions found.</div>
@@ -33,9 +46,21 @@
               <h3>Repositories (GitHub)</h3>
               <ul v-if="gitHubExamples.length">
                 <li v-for="(example, index) in gitHubExamples" :key="index" class="example-item">
-                  <a :href="example.link" target="_blank">{{ example.title }}</a>
-                  <!-- <span class="source-label">({{ example.source }})</span> -->
-                  <span class="star" @click="addToFavorites(example.title, example.link)">★</span>
+                  <a
+                    :href="example.link"
+                    target="_blank"
+                    @click="handleLinkClick(example.title, example.link)"
+                    >{{ example.title }}</a
+                  >
+                  <span
+                    class="star"
+                    :class="{
+                      filled: favorites.find((fav) => fav.title === example.title && fav.isFavorite)
+                    }"
+                    @click="toggleFavorite(example.title, example.link)"
+                  >
+                    ★
+                  </span>
                 </li>
               </ul>
               <div v-else>No repositories found.</div>
@@ -46,9 +71,21 @@
               <h3>Articles (Dev.to)</h3>
               <ul v-if="devToExamples.length">
                 <li v-for="(example, index) in devToExamples" :key="index" class="example-item">
-                  <a :href="example.link" target="_blank">{{ example.title }}</a>
-                  <!-- <span class="source-label">({{ example.source }})</span> -->
-                  <span class="star" @click="addToFavorites(example.title, example.link)">★</span>
+                  <a
+                    :href="example.link"
+                    target="_blank"
+                    @click="handleLinkClick(example.title, example.link)"
+                    >{{ example.title }}</a
+                  >
+                  <span
+                    class="star"
+                    :class="{
+                      filled: favorites.find((fav) => fav.title === example.title && fav.isFavorite)
+                    }"
+                    @click="toggleFavorite(example.title, example.link)"
+                  >
+                    ★
+                  </span>
                 </li>
               </ul>
               <div v-else>No articles found.</div>
@@ -65,17 +102,19 @@ import { ref, onMounted, computed } from 'vue'
 import { useStore } from 'vuex'
 import axios from 'axios'
 import WordCloud from 'wordcloud'
-import { ElLoading } from 'element-plus'
 import router from '@/router'
-import component from 'element-plus/es/components/tree-select/src/tree-select-option.mjs'
 
 const wordCloudImage = ref<string | null>(null)
 const tags = ref<string[]>([])
 const store = useStore()
 const apiUrl = store.getters.apiUrl
-const isLoggedIn = computed(()=>store.getters.isLoggedIn)
-const loading = ref(false) // Loading state
-const favorites = ref<{ title: string; link: string }[]>([]) // 收藏夹
+const token = localStorage.getItem('token')
+if (token) {
+  store.commit('setToken', token)
+  console.log(token)
+}
+const loading = ref(false)
+const favorites = ref<{ title: string; link: string; isFavorite: boolean }[]>([])
 
 // Save data from Stack Overflow, GitHub and Dev.to separately
 const stackOverflowExamples = ref<{ title: string; link: string; source: string }[]>([])
@@ -90,24 +129,108 @@ const hasContent = computed(
     devToExamples.value.length > 0
 )
 
-// 收藏功能
-const addToFavorites = async (title: string, link: string) => {
-  const isLoggedIn = store.getters.isLoggedIn
-  if (!isLoggedIn) {
-    router.push({ name: 'login' })
-    return
-  }
-  favorites.value.push({ title, link })
-  console.log(`Added to favorites: ${title} - ${link}`)
+// 获取收藏夹
+const fetchFavorites = async () => {
   try {
-    await axios.post(`${apiUrl}/user/favorites/`, {
-      item_title: title,
-      item_link: link
+    const headers = {
+      Authorization: `Bearer ${token}`
+    }
+    const response = await axios.get(`${apiUrl}/user/favorites/`, {
+      headers
     })
-    alert('Favour Successfully!')
+    favorites.value = response.data.map((fav: any) => ({
+      title: fav.item_title,
+      link: fav.item_link,
+      isFavorite: true
+    }))
   } catch (error) {
-    console.error('Favour Failed:', error)
+    console.error('Error fetching favorites:', error)
   }
+}
+
+// 收藏功能
+const toggleFavorite = async (title: string, link: string) => {
+  const existingFavorite = favorites.value.find((fav) => fav.title === title)
+  if (existingFavorite) {
+    // 取消收藏
+    existingFavorite.isFavorite = false
+    await deleteFavorite(title)
+  } else {
+    // 添加收藏
+    favorites.value.push({ title, link, isFavorite: true })
+    await addFavorite(title, link)
+  }
+}
+
+const addFavorite = async (title: string, link: string) => {
+  try {
+    const headers = {
+      Authorization: `Bearer ${token}`
+    }
+    await axios
+      .post(
+        `${apiUrl}/user/favorites/`,
+        {
+          item_title: title,
+          item_link: link
+        },
+        { headers }
+      )
+      .catch((error) => {
+        if (error.response.status === 401) {
+          alert('Have not login yet')
+          router.push({ name: 'login' })
+        }
+      })
+  } catch (error) {
+    console.error('Error adding to favorites:', error)
+  }
+}
+
+const deleteFavorite = async (title: string) => {
+  try {
+    const headers = {
+      Authorization: `Bearer ${token}`
+    }
+    await axios
+      .delete(`${apiUrl}/user/favorites/${encodeURIComponent(title)}/`, {
+        headers
+      })
+      .catch((error) => {
+        if (error.response.status === 401) {
+          alert('Have not login yet')
+          router.push({ name: 'login' })
+        }
+      })
+    console.log('Deleted from favorites:', title)
+    // 更新本地 favorites 状态
+  } catch (error) {
+    console.error('Error deleting favorite:', error)
+  }
+}
+
+const recordSearchHistory = async (title: string, link: string) => {
+  try {
+    const headers = {
+      Authorization: `Bearer ${token}`
+    }
+    await axios.post(
+      `${apiUrl}/user/search_records/`,
+      {
+        search_query: title,
+        search_link: link
+      },
+      { headers }
+    )
+  } catch (error) {
+    console.error('Error recording search history:', error)
+    // if(error.response.status === '401')
+  }
+}
+
+// 在链接点击时调用
+const handleLinkClick = (title: string, link: string) => {
+  recordSearchHistory(title, link)
 }
 
 onMounted(async () => {
@@ -166,6 +289,10 @@ onMounted(async () => {
     devToExamples.value = examples.filter(
       (example: { source: string }) => example.source === 'Dev.to'
     )
+
+    console.log('st', stackOverflowExamples.value)
+    console.log('gi', gitHubExamples.value)
+    console.log('de', devToExamples.value)
   } catch (error) {
     console.error('Error generating word cloud or fetching examples:', error)
   } finally {
@@ -275,10 +402,12 @@ onMounted(async () => {
 }
 
 .star {
-  color: #ffcc00; /* 星号颜色 */
+  color: transparent; /* 初始透明 */
+  position: relative;
+  display: inline-block;
   margin-left: 8px;
-  cursor: pointer;
   font-size: 1.2rem; /* 星号大小 */
+  cursor: pointer;
   transition:
     transform 0.3s ease,
     color 0.3s ease;
@@ -287,6 +416,19 @@ onMounted(async () => {
 .star:hover {
   transform: scale(1.2); /* 星号放大效果 */
   color: #f6e05e; /* 鼠标悬停时颜色 */
+}
+
+.star:before {
+  content: '★'; /* 星形字符 */
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: transparent; /* 初始透明 */
+  -webkit-text-stroke: 1px #ffcc00; /* 边框颜色 */
+}
+
+.star.filled:before {
+  color: #ffcc00; /* 点击后填充颜色 */
 }
 
 @media (max-width: 768px) {

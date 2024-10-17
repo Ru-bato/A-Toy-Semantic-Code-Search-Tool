@@ -44,6 +44,8 @@ async def integrated_search(request):
         return JsonResponse({'error': 'No search query provided'}, status=400)
 
     search_keywords = extract_keywords(search_query)
+    print('qu', search_keywords)
+
     # 生成语言过滤字符串，确保每个语言都有独立的 language:
     language_filter = '+'.join([f'language:{lang}' for lang in selected_languages if lang and lang != 'none'])
 
@@ -60,11 +62,14 @@ async def integrated_search(request):
     github_repo_url = f'https://api.github.com/search/repositories?q={search_query}&sort=stars&order=desc'
 
     # StackOverflow API
+    tagged_languages = [lang for lang in selected_languages if lang]  # 去掉空值
     stackoverflow_url = f'https://api.stackexchange.com/2.3/search/advanced?order=desc&sort=relevance&q={search_keywords}' + (
-        f'&tagged={"|".join(selected_languages)}' if selected_languages else '') + '&site=stackoverflow'
+        f'&tagged={"&".join(tagged_languages).replace(",", ";")}' if tagged_languages else '') + '&site=stackoverflow'
+
     # Google Books API
     google_books_url = f'https://www.googleapis.com/books/v1/volumes?q={search_keywords}' if search_keywords else None
 
+    print(stackoverflow_url)
     # YouTube API (ignore language)
     youtube_api_key = 'AIzaSyARMv3a48r16NNvJyZgq5KA18-xpKI89hM'
     youtube_url = f'https://www.googleapis.com/youtube/v3/search?part=snippet&q={search_keywords}&key={youtube_api_key}'

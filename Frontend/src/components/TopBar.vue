@@ -90,7 +90,7 @@ const programmingLanguages = [
   { value: 'python', label: 'Python' },
   { value: 'java', label: 'Java' },
   { value: 'csharp', label: 'C#' },
-  { value: 'cpp', label: 'C++' },
+  { value: 'c++', label: 'C++' },
   { value: 'c', label: 'C' },
   { value: 'ruby', label: 'Ruby' },
   { value: 'php', label: 'PHP' },

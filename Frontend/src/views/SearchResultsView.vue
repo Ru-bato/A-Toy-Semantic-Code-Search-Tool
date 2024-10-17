@@ -15,7 +15,21 @@
           <el-scrollbar class="result-scroll">
             <ul>
               <li v-for="item in githubCodeResults" :key="item.id">
-                <a :href="item.html_url" target="_blank">{{ item.name }}</a>
+                <a
+                  :href="item.html_url"
+                  target="_blank"
+                  @click="handleLinkClick(item.name, item.html_url)"
+                  >{{ item.name }}</a
+                >
+                <span
+                  class="star"
+                  :class="{
+                    filled: favorites.find((fav) => fav.title === item.name && fav.isFavorite)
+                  }"
+                  @click="toggleFavorite(item.name, item.html_url)"
+                >
+                  ★
+                </span>
               </li>
             </ul>
           </el-scrollbar>
@@ -29,7 +43,21 @@
           <el-scrollbar class="result-scroll">
             <ul>
               <li v-for="item in githubRepoResults" :key="item.id">
-                <a :href="item.html_url" target="_blank">{{ item.name }}</a>
+                <a
+                  :href="item.html_url"
+                  target="_blank"
+                  @click="handleLinkClick(item.name, item.html_url)"
+                  >{{ item.name }}</a
+                >
+                <span
+                  class="star"
+                  :class="{
+                    filled: favorites.find((fav) => fav.title === item.name && fav.isFavorite)
+                  }"
+                  @click="toggleFavorite(item.name, item.html)"
+                >
+                  ★
+                </span>
               </li>
             </ul>
           </el-scrollbar>
@@ -45,7 +73,21 @@
           <el-scrollbar class="result-scroll">
             <ul>
               <li v-for="item in stackoverflowResults" :key="item.question_id">
-                <a :href="item.link" target="_blank">{{ item.title }}</a>
+                <a
+                  :href="item.link"
+                  target="_blank"
+                  @click="handleLinkClick(item.title, item.link)"
+                  >{{ item.title }}</a
+                >
+                <span
+                  class="star"
+                  :class="{
+                    filled: favorites.find((fav) => fav.title === item.title && fav.isFavorite)
+                  }"
+                  @click="toggleFavorite(item.title, item.link)"
+                >
+                  ★
+                </span>
               </li>
             </ul>
           </el-scrollbar>
@@ -59,9 +101,24 @@
           <el-scrollbar class="result-scroll">
             <ul>
               <li v-for="item in googleBooksResults" :key="item.id">
-                <a :href="item.volumeInfo.previewLink" target="_blank">
+                <a
+                  :href="item.volumeInfo.previewLink"
+                  target="_blank"
+                  @click="handleLinkClick(item.volumeInfo.title, item.volumeInfo.previewLink)"
+                >
                   {{ item.volumeInfo.title }} by {{ item.volumeInfo.authors.join(', ') }}
                 </a>
+                <span
+                  class="star"
+                  :class="{
+                    filled: favorites.find(
+                      (fav) => fav.title === item.volumeInfo.title && fav.isFavorite
+                    )
+                  }"
+                  @click="toggleFavorite(item.volumeInfo.title, item.volumeInfo.previewLink)"
+                >
+                  ★
+                </span>
               </li>
             </ul>
           </el-scrollbar>
@@ -84,16 +141,30 @@
                 <a
                   :href="'https://www.youtube.com/watch?v=' + item.id.videoId"
                   target="_blank"
-                  @click="openYouTubeVideo(item.id.videoId)"
+                  @click="handleLinkClick(item.snippet.title, item.snippet.thumbnails.medium.url)"
                 >
                   <img
                     :src="item.snippet.thumbnails.medium.url"
                     :alt="item.snippet.title"
                     class="youtube-thumbnail"
                   />
-                  <div class="youtube-video-title" @click="openYouTubeVideo(item.id.videoId)">
+                  <div
+                    class="youtube-video-title"
+                    @click="handleLinkClick(item.snippet.title, item.snippet.thumbnails.medium.url)"
+                  >
                     {{ item.snippet.title }}
                   </div>
+                  <span
+                    class="star"
+                    :class="{
+                      filled: favorites.find(
+                        (fav) => fav.title === item.snippet.title && fav.isFavorite
+                      )
+                    }"
+                    @click="toggleFavorite(item.snippet.title, item.snippet.thumbnails.medium.url)"
+                  >
+                    ★
+                  </span>
                 </a>
               </div>
             </div>
@@ -108,6 +179,8 @@
 import { ref, onMounted, watch } from 'vue'
 import { useStore } from 'vuex'
 import { useRoute } from 'vue-router'
+import axios from 'axios'
+import router from '@/router'
 
 const route = useRoute()
 const store = useStore()
@@ -116,6 +189,11 @@ const githubRepoResults = ref([])
 const stackoverflowResults = ref([])
 const youtubeResults = ref([])
 const googleBooksResults = ref([])
+const token = localStorage.getItem('token')
+if (token) {
+  store.commit('setToken', token)
+}
+const favorites = ref<{ title: string; link: string; isFavorite: boolean }[]>([])
 
 const searchQuery = ref(route.query.q || '')
 const selectedLanguages = ref(
@@ -130,40 +208,145 @@ const apiUrl = store.getters.apiUrl
 
 const fetchSearchResults = async () => {
   if (!searchQuery.value.trim() && selectedLanguages.value.length === 0) {
-    console.warn('No search query or languages selected.');
-    return; // 不发送请求
+    console.warn('No search query or languages selected.')
+    return // 不发送请求
   }
 
   const languageParam =
     selectedLanguages.value.length > 0 && !selectedLanguages.value.includes('none')
       ? `&languages=${selectedLanguages.value.join(',')}`
-      : '';
-  
+      : ''
+  console.log(`${apiUrl}/search/integrated_search?query=${searchQuery.value}${languageParam}&sort=${sortOption.value}`)
   const response = await fetch(
-    `${apiUrl}/search/integrated_search?query=${searchQuery.value}${languageParam}&sort=${sortOption.value}`
-  );
+    `${apiUrl}/search/integrated_search?query=${searchQuery.value}${languageParam}&sort=${sortOption.value}`,
+    {
+      method: 'GET', // 默认为 GET，通常可以省略
+      headers: {
+        // 不添加任何自定义头部
+      }
+    }
+  )
 
-  const data = await response.json();
+  const data = await response.json()
 
-  githubCodeResults.value = data.github_code;
-  githubRepoResults.value = data.github_repositories;
-  stackoverflowResults.value = data.stackoverflow;
-  youtubeResults.value = data.youtube_tutorials;
-  googleBooksResults.value = data.google_books;
-};
-
+  githubCodeResults.value = data.github_code
+  githubRepoResults.value = data.github_repositories
+  stackoverflowResults.value = data.stackoverflow
+  youtubeResults.value = data.youtube_tutorials
+  googleBooksResults.value = data.google_books
+  console.log('stack = ', data.stackoverflow)
+}
 
 // 监听路由查询参数变化
-watch(() => route.query, () => {
-  searchQuery.value = route.query.q || ''
-  selectedLanguages.value = Array.isArray(route.query.languages)
-    ? route.query.languages
-    : route.query.languages
-      ? [route.query.languages]
-      : []
-  sortOption.value = route.query.sort || 'popular'
-  fetchSearchResults()
-})
+watch(
+  () => route.query,
+  () => {
+    searchQuery.value = route.query.q || ''
+    selectedLanguages.value = Array.isArray(route.query.languages)
+      ? route.query.languages
+      : route.query.languages
+        ? [route.query.languages]
+        : []
+    sortOption.value = route.query.sort || 'popular'
+    fetchSearchResults()
+  }
+)
+
+// 获取收藏夹
+const fetchFavorites = async () => {
+  try {
+    const response = await axios.get(`${apiUrl}/user/favorites/`)
+    favorites.value = response.data.map((fav: any) => ({
+      title: fav.item_title,
+      link: fav.item_link,
+      isFavorite: true
+    }))
+  } catch (error) {
+    console.error('Error fetching favorites:', error)
+  }
+}
+
+// 收藏功能
+const toggleFavorite = async (title: string, link: string) => {
+  const existingFavorite = favorites.value.find((fav) => fav.title === title)
+  if (existingFavorite) {
+    // 取消收藏
+    existingFavorite.isFavorite = false
+    await deleteFavorite(title)
+  } else {
+    // 添加收藏
+    favorites.value.push({ title, link, isFavorite: true })
+    await addFavorite(title, link)
+  }
+}
+
+const addFavorite = async (title: string, link: string) => {
+  try {
+    const headers = {
+      Authorization: `Bearer ${token}`
+    }
+    await axios
+      .post(
+        `${apiUrl}/user/favorites/`,
+        {
+          item_title: title,
+          item_link: link
+        },
+        { headers }
+      )
+      .catch((error) => {
+        if (error.response.status === 401) {
+          alert('Have not login yet')
+          router.push({ name: 'login' })
+        }
+      })
+  } catch (error) {
+    console.error('Error adding to favorites:', error)
+  }
+}
+
+const deleteFavorite = async (title: string) => {
+  try {
+    const headers = {
+      Authorization: `Bearer ${token}`
+    }
+    await axios
+      .delete(`${apiUrl}/user/favorites/${encodeURIComponent(title)}/`, { headers })
+      .catch((error) => {
+        if (error.response.status === 401) {
+          alert('Have not login yet')
+          router.push({ name: 'login' })
+        }
+      })
+    console.log('Deleted from favorites:', title)
+    // 更新本地 favorites 状态
+  } catch (error) {
+    console.error('Error deleting favorite:', error)
+  }
+}
+
+const recordSearchHistory = async (title: string, link: string) => {
+  try {
+    const headers = {
+      Authorization: `Bearer ${token}`
+    }
+    await axios.post(
+      `${apiUrl}/user/search_records/`,
+      {
+        search_query: title,
+        search_link: link
+      },
+      { headers }
+    )
+  } catch (error) {
+    console.error('Error recording search history:', error)
+  }
+}
+
+// 在链接点击时调用
+const handleLinkClick = (title: string, link: string) => {
+  recordSearchHistory(title, link)
+}
 
 onMounted(() => {
   fetchSearchResults()
@@ -351,5 +534,35 @@ ul li a:hover {
 .scrollable {
   scrollbar-width: thin; /* 滚动条的宽度（Firefox） */
   scrollbar-color: #409eff #f4f7fa; /* 滚动条的颜色和轨道颜色（Firefox） */
+}
+
+.star {
+  color: transparent; /* 初始透明 */
+  position: relative;
+  display: inline-block;
+  margin-left: 8px;
+  font-size: 1.2rem; /* 星号大小 */
+  cursor: pointer;
+  transition:
+    transform 0.3s ease,
+    color 0.3s ease;
+}
+
+.star:hover {
+  transform: scale(1.2); /* 星号放大效果 */
+  color: #f6e05e; /* 鼠标悬停时颜色 */
+}
+
+.star:before {
+  content: '★'; /* 星形字符 */
+  position: absolute;
+  left: 0;
+  top: 0;
+  color: transparent; /* 初始透明 */
+  -webkit-text-stroke: 1px #ffcc00; /* 边框颜色 */
+}
+
+.star.filled:before {
+  color: #ffcc00; /* 点击后填充颜色 */
 }
 </style>
