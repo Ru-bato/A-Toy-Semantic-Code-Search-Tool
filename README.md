@@ -1,7 +1,5 @@
 # A Toy Semantic Code Search Tool
 
-2251650 牟泳祯
-
 ## 1. 项目背景
 
 本项目允许用户在起始页面输入自然语言进行查询，系统能够智能地寻找有用的源代码示例、相关的在线学习材料、视频等，帮助用户提升编程能力。
@@ -22,7 +20,7 @@ https://github.com/Ru-bato/A-Toy-Semantic-Code-Search-Tool
 - 点击词云中的标签，跳转到对应网页
 - 展示多个来源的热门代码示例，点击可跳转
 - 展示搜索结果，包括代码、仓库、问答、书籍、视频五个模块
-- 支持登录、注册、收藏
+- 支持登录、注册、收藏、历史记录（注：收藏、历史记录可以正常使用，但没有编写展示界面）
 
 ### 2.3 项目结构
 
@@ -78,6 +76,24 @@ https://github.com/Ru-bato/A-Toy-Semantic-Code-Search-Tool
   - pandas==2.2.1
   - requests==2.31.0
   - spacy==3.8.2
+
+### 2.6 运行项目
+
+- **前端**
+
+```bash
+cd Frontend
+npm install
+npm run dev
+```
+
+- **前端**
+
+```bash
+cd Backend
+pip install -r requirements.txt
+python manage.py runserver
+```
 
 ## 3. 功能模块实现
 
@@ -146,7 +162,7 @@ const fetchSearchResults = async () => {
 
 后端接收到前端传来的信息时，首先需要调用`spaCy`自然语言处理库，用于关键词提取，提取出名词、动词和形容词作为关键词，以便进行更精确的搜索。
 
-完成提取后，把关键词以及其他参数，传递给 5 个 API，分别是`GitHub Code`, `GitHub Repositories`/`Stack Overflow`, `YouTube`和`Google Books`。
+完成提取后，把关键词以及其他参数，传递给 5 个 API，分别是`GitHub Code`, `GitHub Repositories`/`Stack Overflow`, `YouTube`和`ariv`。
 
 使用`aiohttp`库，通过`async`和`await`实现并发 API 请求。这样可以在等待某个 API 返回数据时，继续处理其他 API 的请求，从而显著提高数据获取的效率。此外，后端进行了适当的错误处理，这样某个 API 出错时，其他 API 的请求可以正常继续，前端也能看到对应的错误码。
 
