@@ -77,6 +77,24 @@ https://github.com/Ru-bato/A-Toy-Semantic-Code-Search-Tool
   - requests==2.31.0
   - spacy==3.8.2
 
+### 2.6 运行项目
+
+- **前端**
+
+```bash
+cd Frontend
+npm install
+npm run dev
+```
+
+- **前端**
+
+```bash
+cd Backend
+pip install -r requirements.txt
+python manage.py runserver
+```
+
 ## 3. 功能模块实现
 
 ### 3.1 搜索模块
