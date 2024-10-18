@@ -18,7 +18,7 @@
                 <a
                   :href="item.html_url"
                   target="_blank"
-                  @click="handleLinkClick(item.name, item.html_url)"
+                  @click="(event) => handleLinkClick(item.name, item.html_url, event)"
                   >{{ item.name }}</a
                 >
                 <span
@@ -46,7 +46,7 @@
                 <a
                   :href="item.html_url"
                   target="_blank"
-                  @click="handleLinkClick(item.name, item.html_url)"
+                  @click="(event) => handleLinkClick(item.name, item.html_url, event)"
                   >{{ item.name }}</a
                 >
                 <span
@@ -76,7 +76,7 @@
                 <a
                   :href="item.link"
                   target="_blank"
-                  @click="handleLinkClick(item.title, item.link)"
+                  @click="(event) => handleLinkClick(item.title, item.link, event)"
                   >{{ item.title }}</a
                 >
                 <span
@@ -94,28 +94,25 @@
         </el-card>
       </el-col>
 
-      <!-- Google Books 结果展示 -->
+      <!-- ArXiv 结果展示 -->
       <el-col :span="12" :lg="12" :md="12" :sm="24">
         <el-card class="result-card" shadow="hover">
-          <h3>Google Books Results</h3>
+          <h3>Arxiv Results</h3>
           <el-scrollbar class="result-scroll">
             <ul>
-              <li v-for="item in googleBooksResults" :key="item.id">
+              <li v-for="item in arxivResults" :key="item.id">
                 <a
-                  :href="item.volumeInfo.previewLink"
+                  :href="item.link"
                   target="_blank"
-                  @click="handleLinkClick(item.volumeInfo.title, item.volumeInfo.previewLink)"
+                  @click="(event) => handleLinkClick(item.title, item.link, event)"
+                  >{{ item.title }}</a
                 >
-                  {{ item.volumeInfo.title }} by {{ item.volumeInfo.authors.join(', ') }}
-                </a>
                 <span
                   class="star"
                   :class="{
-                    filled: favorites.find(
-                      (fav) => fav.title === item.volumeInfo.title && fav.isFavorite
-                    )
+                    filled: favorites.find((fav) => fav.title === item.title && fav.isFavorite)
                   }"
-                  @click="toggleFavorite(item.volumeInfo.title, item.volumeInfo.previewLink)"
+                  @click="toggleFavorite(item.title, item.link)"
                 >
                   ★
                 </span>
@@ -135,13 +132,20 @@
             <div class="youtube-thumbnails">
               <div
                 v-for="item in youtubeResults"
-                :key="item.id.videoId"
+                :key="item.id.videoId || item.id.playlistId"
                 class="youtube-video-container"
               >
                 <a
-                  :href="'https://www.youtube.com/watch?v=' + item.id.videoId"
+                  :href="'https://www.youtube.com/watch?v=' + item.id.videoId || item.id.playlistId"
                   target="_blank"
-                  @click="handleLinkClick(item.snippet.title, item.snippet.thumbnails.medium.url)"
+                  @click="
+                    (event) =>
+                      handleLinkClick(
+                        item.snippet.title,
+                        'https://www.youtube.com/watch?v=' + item.id.videoId || item.id.playlistId,
+                        event
+                      )
+                  "
                 >
                   <img
                     :src="item.snippet.thumbnails.medium.url"
@@ -150,7 +154,15 @@
                   />
                   <div
                     class="youtube-video-title"
-                    @click="handleLinkClick(item.snippet.title, item.snippet.thumbnails.medium.url)"
+                    @click="
+                      (event) =>
+                        handleLinkClick(
+                          item.snippet.title,
+                          'https://www.youtube.com/watch?v=' + item.id.videoId ||
+                            item.id.playlistId,
+                          event
+                        )
+                    "
                   >
                     {{ item.snippet.title }}
                   </div>
@@ -188,7 +200,7 @@ const githubCodeResults = ref([])
 const githubRepoResults = ref([])
 const stackoverflowResults = ref([])
 const youtubeResults = ref([])
-const googleBooksResults = ref([])
+const arxivResults = ref([])
 const token = localStorage.getItem('token')
 if (token) {
   store.commit('setToken', token)
@@ -216,7 +228,9 @@ const fetchSearchResults = async () => {
     selectedLanguages.value.length > 0 && !selectedLanguages.value.includes('none')
       ? `&languages=${selectedLanguages.value.join(',')}`
       : ''
-  console.log(`${apiUrl}/search/integrated_search?query=${searchQuery.value}${languageParam}&sort=${sortOption.value}`)
+  console.log(
+    `${apiUrl}/search/integrated_search?query=${searchQuery.value}${languageParam}&sort=${sortOption.value}`
+  )
   const response = await fetch(
     `${apiUrl}/search/integrated_search?query=${searchQuery.value}${languageParam}&sort=${sortOption.value}`,
     {
@@ -233,8 +247,14 @@ const fetchSearchResults = async () => {
   githubRepoResults.value = data.github_repositories
   stackoverflowResults.value = data.stackoverflow
   youtubeResults.value = data.youtube_tutorials
-  googleBooksResults.value = data.google_books
-  console.log('stack = ', data.stackoverflow)
+  arxivResults.value = data.arxiv_results.map(
+    (item: { id: any; title: any; link: { [x: string]: any }[] }) => ({
+      id: item.id,
+      title: item.title,
+      link: item.link[0]['@href'] // 使用方括号访问属性
+    })
+  )
+  console.log('you', youtubeResults.value)
 }
 
 // 监听路由查询参数变化
@@ -325,7 +345,7 @@ const deleteFavorite = async (title: string) => {
   }
 }
 
-const recordSearchHistory = async (title: string, link: string) => {
+const recordSearchHistory = async (title: string, link: string, event: any) => {
   try {
     const headers = {
       Authorization: `Bearer ${token}`
@@ -344,8 +364,8 @@ const recordSearchHistory = async (title: string, link: string) => {
 }
 
 // 在链接点击时调用
-const handleLinkClick = (title: string, link: string) => {
-  recordSearchHistory(title, link)
+const handleLinkClick = (title: string, link: string, event: any) => {
+  recordSearchHistory(title, link, event)
 }
 
 onMounted(() => {
